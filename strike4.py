@@ -18,17 +18,22 @@ class Game:
     def change_turn(self):
         self.turn *= -1
 
-    def move_better(self, symbol=None) -> None:
-        symbol = symbol if symbol else self.turn
-        move = self.board.best_move(symbol)
-        if move:
-            print("I did the best move at", move)
-            self.board.move(*move, symbol)
-        else:
-            print("I did a random move")
-            self.move_randomly(symbol)
+    def best_move(self, symbol=None) -> None:
+        board = self.board.board
+        best_move = (-1, -1)
+        best_value = float('-inf')
+        for i in range(self.rows):
+            for j in range(self.columns):
+                if board[i][j].is_empty():
+                    board[i][j].set(symbol)
+                    move_value = self.board.minimax(board, 0, float('-inf'), float('inf'), False)
+                    board[i][j].empty()
+                    if move_value > best_value:
+                        best_move = (i, j)
+                        best_value = move_value
+        return best_move
 
-    def move_randomly(self, symbol=None):
+    def random_move(self, symbol=None):
         empty_spots = self.board.get_empty_spots()
         if empty_spots:
             row, column = random.choice(empty_spots)
@@ -45,89 +50,80 @@ class Board:
         self.columns = columns
         self.board = [[Tile(row, column) for column in range(columns)] for row in range(rows)]
 
-    def score(self) -> int:
-        pass
-
     def draw(self) -> None:
         pass
 
     def print(self):
-        return "\n".join(["".join([self.get(i, j).convert_symbol() for j in range(self.columns)]) for i in range(self.rows)])
-    
-    def get(self, i, j):
-        return self.board[i][j]
-    
-    def set(self, i, j, symbol):
-        self.board[i][j].object = symbol
+        return "\n".join(["".join([self.board[i][j].convert_symbol() for j in range(self.columns)]) for i in range(self.rows)])
 
     def move(self, i, j, symbol=None):
         symbol = symbol if symbol else self.turn
-        self.set(i, j, symbol)
-        print("Player", self.get(i, j).convert_symbol(), "played at", i, j)
+        self.board[i][j].set(symbol)
+        print("Player", self.board[i][j].convert_symbol(), "played at", i, j)
         self.game.change_turn()
     
     def get_empty_spots(self):
-        return list(filter(lambda coord: self.get(*coord).is_empty(), self.get_all_coords()))
+        return [(i, j) for i in range(self.rows) for j in range(self.columns) if self.board[i][j].is_empty()]
     
     def is_draw(self) -> bool:
-        return all([not self.get(*coord).is_empty() for coord in self.get_all_coords()])
+        return all([not self.board[i][j].is_empty() for i in range(self.rows) for j in range(self.columns)])
     
     def check_win(self) -> int:
         # Check if any player has won
         for symbol in [-1, 1]:
             for i in range(self.rows):
                 for j in range(self.columns-self.game.length_win+1):
-                    row = [self.board[i][j+k].object for k in range(self.game.length_win)]
+                    row = [self.board[i][j+k].get() for k in range(self.game.length_win)]
                     if sum(row) == symbol*self.game.length_win:
                         return symbol
             for j in range(self.columns):
                 for i in range(self.rows-self.game.length_win+1):
-                    column = [self.board[i+k][j].object for k in range(self.game.length_win)]
+                    column = [self.board[i+k][j].get() for k in range(self.game.length_win)]
                     if sum(column) == symbol*self.game.length_win:
                         return symbol
             for i in range(self.rows-self.game.length_win+1):
                 for j in range(self.columns-self.game.length_win+1):
-                    diagonal1 = [self.board[i+k][j+k].object for k in range(self.game.length_win)]
-                    diagonal2 = [self.board[i+k][j+self.game.length_win-k-1].object for k in range(self.game.length_win)]
-                    if sum(diagonal1) == symbol*self.game.length_win or sum(diagonal2) == symbol*self.game.length_win:
+                    diagonal1 = [self.board[i+k][j+k].get() for k in range(self.game.length_win)]
+                    if sum(diagonal1) == symbol*self.game.length_win:
+                        return symbol
+                    diagonal2 = [self.board[i+k][j+self.game.length_win-k-1].get() for k in range(self.game.length_win)]
+                    if sum(diagonal2) == symbol*self.game.length_win:
                         return symbol
         # Check if the board is full
         if self.is_draw():
             return 0
         return None
     
-    def best_move(self, symbol=None) -> tuple[int, int]|None:
-        symbol = symbol if symbol else self.turn
-        coords = self.get_all_coords()
-        # Check if the player can win in the next move
-        for player in [1, -1]:
-            for coord in coords:
-                if self.get(*coord).is_empty():
-                    self.set(*coord, symbol*player)
-                    win = (self.check_win() == symbol*player)
-                    self.set(*coord, 0)
-                    if win:
-                        return coord
-        # Check if the player can create a win situation in the next move
-        for player in [1, -1]:
-            for coord1 in coords:
-                if self.get(*coord1).is_empty():
-                    self.set(*coord1, symbol*player)
-                    count = 0
-                    for coord2 in coords:
-                        if self.get(*coord2).is_empty():
-                            self.set(*coord2, symbol*player)
-                            if self.check_win() == symbol*player:
-                                count += 1
-                            self.set(*coord2, 0)
-                            if count > 1:
-                                self.set(*coord1, 0)
-                                return coord1
-                    self.set(*coord1, 0)
-        return None
-                        
-    def get_all_coords(self):
-        return [(i, j) for i in range(self.rows) for j in range(self.columns)]
+    def minimax(self, depth, alpha, beta, is_maximizing: True, symbol = None) -> float:
+        if self.check_win() is not None:
+            return self.check_win()
+        symbol = symbol if symbol else self.game.turn
+        if is_maximizing:
+            max_eval = float('-inf')
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    if self.board[i][j].is_empty():
+                        self.board[i][j].set(symbol)
+                        eval = self.minimax(self.board, depth + 1, alpha, beta, False)
+                        self.board[i][j].empty()
+                        max_eval = max(max_eval, eval)
+                        alpha = max(alpha, eval)
+                        if beta <= alpha:
+                            break
+            return max_eval
+        else:
+            min_eval = float('inf')
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    if self.board[i][j].is_empty():
+                        self.board[i][j].set(-symbol)
+                        eval = self.minimax(self.board, depth + 1, alpha, beta, True)
+                        self.board[i][j].empty()
+                        min_eval = min(min_eval, eval)
+                        beta = min(beta, eval)
+                        if beta <= alpha:
+                            break
+            return min_eval
 
 class Tile:
     def __init__(self, row, column, object=0):
@@ -140,11 +136,23 @@ class Tile:
     
     def is_empty(self) -> bool:
         return self.object == 0
+
+    def empty(self) -> None:
+        self.object = 0
+
+    def is_equal(self, symbol) -> bool:
+        return self.object == symbol
+    
+    def get(self) -> int:
+        return self.object
+    
+    def set(self, symbol) -> None:
+        self.object = symbol
     
 game = Game()
 print(game.board.print())
 for _ in range(3):
-    game.move_randomly()
+    game.random_move()
 i = 0
 win, draw = 0, 0
 while game.board.check_win() != 1 and i < 1001:
@@ -152,9 +160,9 @@ while game.board.check_win() != 1 and i < 1001:
     print(game.board.print())
     print("="*game.columns)
     if game.turn == -1:
-        game.move_better()
+        game.best_move()
     else:
-        game.move_randomly()
+        game.random_move()
     print("Winning?", game.board.check_win())
     if game.board.check_win() in [-1, 0]:
         i += 1
@@ -163,5 +171,5 @@ while game.board.check_win() != 1 and i < 1001:
         draw += game.board.check_win() == 0
         game.reset()
         for _ in range(3):
-            game.move_randomly()
+            game.random_move()
 print("Win:", win, "Draw:", draw)
