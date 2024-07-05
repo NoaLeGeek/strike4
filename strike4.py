@@ -58,6 +58,8 @@ class Board:
 
     def move(self, i, j, symbol=None):
         symbol = symbol if symbol else self.turn
+        if symbol is None:
+            print("im None its not normal")
         self.board[i][j].set(symbol)
         print("Player", self.board[i][j].convert_symbol(), "played at", i, j)
         self.game.change_turn()
@@ -95,9 +97,12 @@ class Board:
         return None
     
     def minimax(self, depth, alpha, beta, is_maximizing: True, symbol = None) -> float:
-        if self.check_win() is not None:
-            return self.check_win()
+        win = self.check_win()
+        if win is not None:
+            return win
         symbol = symbol if symbol else self.game.turn
+        if symbol is None:
+            print("im None its not normal")
         if is_maximizing:
             max_eval = float('-inf')
             for i in range(self.rows):
@@ -150,7 +155,6 @@ class Tile:
         self.object = symbol
     
 game = Game()
-print(game.board.print())
 for _ in range(3):
     game.random_move()
 i = 0
