@@ -19,6 +19,7 @@ class Game:
         self.turn *= -1
 
     def best_move(self, symbol=None) -> None:
+        symbol = symbol if symbol else self.turn
         board = self.board.board
         best_move = (-1, -1)
         best_value = float('-inf')
@@ -26,7 +27,7 @@ class Game:
             for j in range(self.columns):
                 if board[i][j].is_empty():
                     board[i][j].set(symbol)
-                    move_value = self.board.minimax(board, 0, float('-inf'), float('inf'), False)
+                    move_value = self.board.minimax(0, float('-inf'), float('inf'), False, symbol)
                     board[i][j].empty()
                     if move_value > best_value:
                         best_move = (i, j)
@@ -58,8 +59,6 @@ class Board:
 
     def move(self, i, j, symbol=None):
         symbol = symbol if symbol else self.turn
-        if symbol is None:
-            print("im None its not normal")
         self.board[i][j].set(symbol)
         print("Player", self.board[i][j].convert_symbol(), "played at", i, j)
         self.game.change_turn()
@@ -70,6 +69,7 @@ class Board:
     def is_draw(self) -> bool:
         return all([not self.board[i][j].is_empty() for i in range(self.rows) for j in range(self.columns)])
     
+    # Return 1 if X wins, -1 if O wins, 0 if draw, None if game is not over
     def check_win(self) -> int:
         # Check if any player has won
         for symbol in [-1, 1]:
@@ -97,19 +97,19 @@ class Board:
         return None
     
     def minimax(self, depth, alpha, beta, is_maximizing: True, symbol = None) -> float:
+        print("depth", depth)
         win = self.check_win()
         if win is not None:
             return win
         symbol = symbol if symbol else self.game.turn
-        if symbol is None:
-            print("im None its not normal")
         if is_maximizing:
             max_eval = float('-inf')
             for i in range(self.rows):
                 for j in range(self.columns):
                     if self.board[i][j].is_empty():
+                        #print("Minimax", i, j, symbol)
                         self.board[i][j].set(symbol)
-                        eval = self.minimax(self.board, depth + 1, alpha, beta, False)
+                        eval = self.minimax(depth + 1, alpha, beta, False, symbol)
                         self.board[i][j].empty()
                         max_eval = max(max_eval, eval)
                         alpha = max(alpha, eval)
@@ -121,8 +121,9 @@ class Board:
             for i in range(self.rows):
                 for j in range(self.columns):
                     if self.board[i][j].is_empty():
+                        #print("Minimax", i, j, symbol)
                         self.board[i][j].set(-symbol)
-                        eval = self.minimax(self.board, depth + 1, alpha, beta, True)
+                        eval = self.minimax(depth + 1, alpha, beta, True, -symbol)
                         self.board[i][j].empty()
                         min_eval = min(min_eval, eval)
                         beta = min(beta, eval)
@@ -159,7 +160,7 @@ for _ in range(3):
     game.random_move()
 i = 0
 win, draw = 0, 0
-while game.board.check_win() != 1 and i < 1001:
+while game.board.check_win() != 1 and i < 2:
     print("="*game.columns)
     print(game.board.print())
     print("="*game.columns)
