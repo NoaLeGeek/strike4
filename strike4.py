@@ -1,8 +1,33 @@
 import random
 import pygame
 import math
-from ai import Bot
+from bot import Bot
+from config import Config
 from game import Game
+from scene import SceneManager
+
+
+def main():
+    pygame.init()
+    config = Config()
+    screen = pygame.display.set_mode((800, 600))
+    pygame.display.set_caption("Strike 4")
+    clock = pygame.time.Clock()
+    manager = SceneManager()
+    game = Game()
+    if config.strike4:
+        for _ in range(3):
+            game.random_move()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            game.handle_event(event)
+        game.update()
+        game.render(screen)
+        pygame.display.flip()
+        clock.tick(60)
 
 game = Game()
 for _ in range(3):

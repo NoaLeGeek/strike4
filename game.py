@@ -1,6 +1,6 @@
 import math
 import random
-from ai import Bot
+from bot import Bot
 from config import Config
 
 
